@@ -4,23 +4,29 @@
 local CommonTooltip = CreateFrame("GameTooltip", "CommonTooltip", UIParent, "GameTooltipTemplate")
 
 -- Spell to action slot mapping (populated on addon load)
-local SpellToActionSlot = {}
+SpellToActionSlot = {}
+SpellToID = {}
+SpellToTexture = {}
 
 -- Function to populate spell to action slot mapping
-local function PopulateSpellToActionMapping()
+function PopulateSpellToActionMapping()
     -- Clear existing mapping
     SpellToActionSlot = {}
     
     -- Iterate through all spell book slots to get spell names and textures
-    local spellBookSpells = {}
+    SpellToTexture = {}
     local spellID = 1
     local spellName = GetSpellName(spellID, "BOOKTYPE_SPELL")
     
     while spellName do
         local spellTexture = GetSpellTexture(spellID, "BOOKTYPE_SPELL")
         if spellTexture then
-            spellBookSpells[spellName] = spellTexture
+            SpellToTexture[spellName] = spellTexture
         end
+        if spellName then
+            SpellToID[spellName] = spellID
+        end
+
         spellID = spellID + 1
         spellName = GetSpellName(spellID, "BOOKTYPE_SPELL")
     end
@@ -30,7 +36,7 @@ local function PopulateSpellToActionMapping()
         local actionTexture = GetActionTexture(slot)
         if actionTexture then
             -- Find which spell this action slot corresponds to
-            for spellName, spellTexture in pairs(spellBookSpells) do
+            for spellName, spellTexture in pairs(SpellToTexture) do
                 if actionTexture == spellTexture then
                     SpellToActionSlot[spellName] = slot
                     break
@@ -42,9 +48,24 @@ local function PopulateSpellToActionMapping()
     if CurrentState.debugEnabled then
         print("Spell to action slot mapping populated:")
         for spellName, slot in pairs(SpellToActionSlot) do
-            print("  " .. spellName .. " -> slot " .. slot)
+            if not SpellToID[spellName] then
+                print("WARNING: No spell ID found for " .. spellName)
+            else
+                print("  " .. spellName .. " -> slot " .. slot .. " id " .. SpellToID[spellName])
+            end
         end
     end
+end
+
+function GetCooldown(spellName)
+    local spellID = SpellToID[spellName]
+    if not spellID then
+        print("WARNING: No spell ID found for " .. spellName)
+        return false
+    end
+    local start, duration = GetSpellCooldown(spellID, "BOOKTYPE_SPELL")
+    local cooldown = duration - (GetTime() - start)
+    return cooldown
 end
 
 -- Function to check if a spell is usable
@@ -55,39 +76,21 @@ function IsUsable(spellName)
 
     local actionSlot = SpellToActionSlot[spellName]
     if not actionSlot then
-        -- If we don't have a mapping for this spell, try to populate it now
-        PopulateSpellToActionMapping()
-        actionSlot = SpellToActionSlot[spellName]
+        print("WARNING: No action slot found for " .. spellName)
+        return false
     end
     
     if actionSlot then
-        local isUsable, noMana = IsUsableAction(actionSlot)
-        return isUsable
+        local isUsableSkill, noMana = IsUsableAction(actionSlot)
+        return isUsableSkill
     end
     
     return false
 end
 
--- Populate spell mapping when addon loads
-local loadFrame = CreateFrame("Frame")
-loadFrame:RegisterEvent("PLAYER_LOGIN")
-loadFrame:SetScript("OnEvent", function()
-    PopulateSpellToActionMapping()
-end)
-
--- Create a frame to track dodge and parry events
-local dodgeFrame = CreateFrame("Frame")
-dodgeFrame:RegisterEvent("CHAT_MSG_COMBAT_SELF_MISSES")
-dodgeFrame:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF")
-dodgeFrame:SetScript("OnEvent", function()
-    if event == "CHAT_MSG_COMBAT_SELF_MISSES" or event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF" then
-        if string.find(arg1, "dodge") then
-            CurrentState.lastDodge = GetTime()
-        elseif string.find(arg1, "parry") then
-            CurrentState.lastParry = GetTime()
-        end
-    end
-end)
+-- Populate spell mapping when addon loads and on relevant events
+-- Note: Event handling is now centralized in TREventFrame (combat_helper.xml/lua)
+-- This function is called by the centralized OnEvent handler
 
 -- Helper function to check buffs and debuffs
 function GetBuff(name, buff, stacks)
@@ -373,3 +376,62 @@ function GetTargetCreatureType()
     
     return "Unknown"
 end
+
+-- Enhanced Overpower availability check using combat log detection
+function OverPowerIsUsable()
+    -- Check if we have a target
+    if not UnitExists("target") then
+        return false
+    end
+    
+    -- Check if target is attackable
+    if not UnitCanAttack("player", "target") then
+        return false
+    end
+    
+    -- Check if we have sufficient rage (Overpower costs 5 rage)
+    -- local rage = UnitMana("player") or 0
+    -- if rage < 5 then
+    --     if CurrentState.debugEnabled then
+    --         print("Overpower not available: Insufficient rage (" .. rage .. "/5)")
+    --     end
+    --     return false
+    -- end
+    
+    -- Check if Overpower is on cooldown
+    if GetCooldown("Overpower") > 1 then
+        if CurrentState.debugEnabled then
+            print("Overpower not available: On cooldown")
+        end
+        return false
+    end
+    
+    -- Check if target has dodged recently (within 5 seconds)
+    local timeSinceDodge = GetTime() - CurrentState.lastDodge
+    if timeSinceDodge > 5 then
+        if CurrentState.debugEnabled then
+            print("Overpower not available: No recent dodge (last dodge was " .. string.format("%.1f", timeSinceDodge) .. " seconds ago)")
+        end
+        return false
+    end
+    
+    -- All conditions met - Overpower is available!
+    if CurrentState.debugEnabled then
+        print("Overpower is available! Dodge was " .. string.format("%.1f", timeSinceDodge) .. " seconds ago")
+    end
+    
+    return true
+end
+
+-- Helper function to get time remaining for Overpower availability
+function GetOverpowerTimeRemaining()
+    local timeSinceDodge = GetTime() - CurrentState.lastDodge
+    local timeRemaining = 5 - timeSinceDodge
+    
+    if timeRemaining > 0 then
+        return timeRemaining
+    else
+        return 0
+    end
+end
+

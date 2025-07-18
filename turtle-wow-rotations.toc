@@ -3,11 +3,16 @@
 ## Notes: My macroses
 ## Author: Adrinalin4ik
 
+event_functions.lua
+combat_helper.xml
 print.lua
 state_manager.lua
 common_utils.lua
+overpower_indicator.xml
 fury_warrior.lua
+fury_warrior_perfect.lua
+test_perfect_rotation.lua
+debug_rotation.lua
 arms_warrior.lua
 shaman_enh.lua
 subtlety_rogue.lua
-

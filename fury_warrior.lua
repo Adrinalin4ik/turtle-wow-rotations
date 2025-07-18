@@ -1,10 +1,3 @@
-local function OverPowerIsUsable()
-    local rage = UnitMana("player") or 0
-    if GetTime() - CurrentState.lastDodge < 5 and rage >= 5 and not OnCooldown("Overpower") then
-        return true
-    end
-    return false
-end
 
 function FuryWarriorDecision(debugEnabled)
     CurrentState.debugEnabled = debugEnabled
@@ -72,34 +65,43 @@ function FuryWarriorDecision(debugEnabled)
         if DEBUG then
             print("Enemy player without Hamstring, applying Hamstring")
         end
-        if Cast("Hamstring", "Berserker") then
+        if Cast("Hamstring") then
             return
         end
     end
 
+
     -- Battle Stance Logic
-    if rage <= 35 or isBattleStance then
+    if (rage <= 30 and isBerserkerStance) or isBattleStance then
         -- Check for dodge first (highest priority)
         if OverPowerIsUsable() then
             if Cast("Overpower", "Battle") then
                 return
             end
         -- Check for Rend if no dodge (only on creatures that can bleed)
-        elseif not hasRend and rage >= 10 and not IsApplied("Rend", nil) and CanTargetBleed() then
+        elseif not hasRend and rage >= 10 and not IsApplied("Rend", nil) and CanTargetBleed() and isBattleStance then
             if DEBUG then
                 print("No Rend on target, applying Rend")
             end
             if Cast("Rend", "Battle") then
                 return
             end
+        elseif rage > 25 and isBattleStance then
+            if not OnCooldown("Bloodthirst") then
+                Cast("Bloodthirst", nil)
+            else
+                Cast("Heroic Strike", nil)
+            end
         else
             -- If no conditions met, switch back to Berserker
             if DEBUG then
                 print("No Battle Stance conditions met, switching back to Berserker")
             end
-            Cast("Berserker Stance", nil)
+            if IsApplied("Rend", nil) or not CanTargetBleed() then
+                Cast("Berserker Stance", nil)
+            end
         end
-    elseif not isBerserkerStance and not OverPowerIsUsable() then
+    elseif not isBerserkerStance and not OverPowerIsUsable() and rage < 25 then
         if DEBUG then
             print("No Battle Stance conditions met, switching back to Berserker")
         end
@@ -114,9 +116,9 @@ function FuryWarriorDecision(debugEnabled)
     end
 
 
-    if OverPowerIsUsable() and rage <= 35 then
-        return;
-    end
+    -- if OverPowerIsUsable() and rage <= 35 then
+    --     return;
+    -- end
 
     -- General buffs
     if not hasBattleShout and rage >= 10 then
@@ -180,12 +182,12 @@ function FuryWarriorDecision(debugEnabled)
     if rage >= 20 and isBerserkerStance then
         if not OnCooldown("Bloodthirst") then
             Cast("Bloodthirst", "Berserker")
-        elseif not OnCooldown("Whirlwind") or OverPowerIsUsable() then
+        elseif not OnCooldown("Whirlwind") and not OverPowerIsUsable() then
             if DEBUG then
                 print("Using Whirlwind as filler")
             end
             Cast("Whirlwind", "Berserker")
-        elseif rage > 32 then
+        elseif (rage > 35 and GetCooldown('Whirlwind') > 4 and GetCooldown('Bloodthirst') > 2) or rage > 45 then
             if nearbyEnemies > 1 then
                 if DEBUG then
                     print("Multiple enemies detected, using Cleave as rage dump")

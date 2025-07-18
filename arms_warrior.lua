@@ -1,11 +1,3 @@
-local function OverPowerIsUsable()
-    local rage = UnitMana("player") or 0
-    if GetTime() - CurrentState.lastDodge < 5 and rage >= 5 and not OnCooldown("Overpower") then
-        return true
-    end
-    return false
-end
-
 function ArmsWarriorDecision(debugEnabled)
     CurrentState.debugEnabled = debugEnabled
     local DEBUG = CurrentState.debugEnabled
