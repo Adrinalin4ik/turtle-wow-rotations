@@ -1,6 +1,9 @@
-function FuryWarriorPerfect(debugEnabled)
+function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     CurrentState.debugEnabled = debugEnabled
     local DEBUG = CurrentState.debugEnabled
+    
+    -- Set default Bloodthirst cost if not provided
+    bloodthirstCost = bloodthirstCost or 30
 
     -- Early exit if no target
     if not UnitExists("target") or not UnitCanAttack("player", "target") then
@@ -70,17 +73,26 @@ function FuryWarriorPerfect(debugEnabled)
     end
     
     -- Estimate rage generation from next swing (typically 5-15 rage per swing)
-    local estimatedRageFromSwing = 10 -- Conservative estimate
+    local estimatedRageFromSwing = 8 -- Conservative estimate
     local rageAfterSwing = effectiveRage + estimatedRageFromSwing
 
     if DEBUG then
         print("=== Fury Warrior OPTIMIZED DPS Rotation ===")
         print("Rage: " .. rage .. " (Effective: " .. effectiveRage .. "), AP: " .. AP)
+        print("Bloodthirst Cost: " .. bloodthirstCost)
         print("Target HP%: " .. math.floor(targetHealthPercent * 100))
         print("Stance - Battle: " .. tostring(isBattleStance) .. ", Berserker: " .. tostring(isBerserkerStance))
         print("Cooldowns - Bloodthirst: " .. string.format("%.1f", bloodthirstCD) .. "s, Whirlwind: " .. string.format("%.1f", whirlwindCD) .. "s")
         print("Overpower available: " .. tostring(overpowerUsable))
         print("Weapon swing: " .. string.format("%.1f", timeToNextSwing) .. "s, Rage after swing: " .. rageAfterSwing)
+        
+        -- Check racial abilities
+        if IsUsable("Perception") then
+            local perceptionCD = GetCooldown("Perception")
+            print("Perception - Cooldown: " .. string.format("%.1f", perceptionCD) .. "s, Available: " .. tostring(perceptionCD <= 0))
+        else
+            print("Perception - Not available (not Human race)")
+        end
     end
 
     -- PRIORITY 1: Overpower (ABSOLUTE HIGHEST PRIORITY - rare, high damage ability)
@@ -128,6 +140,12 @@ function FuryWarriorPerfect(debugEnabled)
             if DEBUG then print("Priority 5: Using Death Wish") end
             if Cast("Death Wish", "Berserker") then return end
         end
+        
+        -- Perception racial ability (use with Death Wish for maximum damage)
+        if hasEnrage and not OnCooldown("Perception") and IsUsable("Perception") then
+            if DEBUG then print("Priority 5: Using Perception racial (with Death Wish)") end
+            if Cast("Perception") then return end
+        end
     end
 
     -- PRIORITY 6: Hamstring on players (PvP) - only when safe
@@ -155,28 +173,27 @@ function FuryWarriorPerfect(debugEnabled)
     end
 
     -- PRIORITY 9: Main damage rotation (Berserker Stance)
-    if isBerserkerStance and effectiveRage >= 20 then
+    if isBerserkerStance and effectiveRage >= bloodthirstCost then
         -- Bloodthirst (highest priority damage ability)
         if bloodthirstCD <= 0 then
-            if DEBUG then print("Priority 9: Using Bloodthirst") end
+            if DEBUG then print("Priority 9: Using Bloodthirst (Cost: " .. bloodthirstCost .. ")") end
             if Cast("Bloodthirst", "Berserker") then return end
         end
         
-        -- Whirlwind (lower priority - only when no better options)
+        -- Whirlwind (use when available if we have enough rage for both abilities)
         if whirlwindCD <= 0 then
-            -- Only use Whirlwind if:
-            -- 1. Bloodthirst is on long cooldown (> 2s)
-            -- 2. No Overpower available
-            -- 3. We have excess rage or rage will be generated soon
-            if bloodthirstCD > 2 and not overpowerUsable and (effectiveRage >= 25 or rageAfterSwing >= 30) then
-                if DEBUG then print("Priority 9: Using Whirlwind (no better options available)") end
+            -- Use Whirlwind if we have enough rage for both Bloodthirst and Whirlwind
+            -- or if Bloodthirst is on cooldown and we have enough rage
+            if (effectiveRage >= (bloodthirstCost + 25) and bloodthirstCD <= 0) or 
+               (effectiveRage >= 25 and bloodthirstCD > 0) then
+                if DEBUG then print("Priority 9: Using Whirlwind (sufficient rage for both abilities)") end
                 if Cast("Whirlwind", "Berserker") then return end
             end
         end
     end
 
     -- PRIORITY 10: Stance optimization for Overpower and Bloodthirst
-    if effectiveRage >= 20 then
+    if effectiveRage >= bloodthirstCost then
         -- Switch to Battle Stance ONLY if Overpower is available or coming very soon
         if not isBattleStance and overpowerUsable then
             if DEBUG then print("Priority 10: Switching to Battle Stance (Overpower available)") end
