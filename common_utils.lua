@@ -435,3 +435,81 @@ function GetOverpowerTimeRemaining()
     end
 end
 
+
+-- Quiver-style timing functions
+_AIMING_TIME = 0.5  -- Aiming phase time
+
+-- Function to get time until next auto attack (legacy)
+function GetTimeUntilNextAutoAttack()
+    local rangedSpeed = UnitRangedDamage("player")
+    local currentTime = GetTime()
+    local timeSinceLastAttack = currentTime - (CurrentState.lastAutoAttack or 0)
+    local timeUntilNextAttack = rangedSpeed - timeSinceLastAttack
+    
+    if timeUntilNextAttack < 0 then
+        return 0
+    end
+    
+    return timeUntilNextAttack
+end
+
+-- Quiver-style functions for better timing
+function GetSecondsRemainingShoot()
+    -- if not CurrentState.isShooting or CurrentState.isReloading then
+    --     return false, 0, 0
+    -- end
+    
+    local elapsed = GetTime() - (CurrentState.shootStartTime or 0)
+    local remaining = _AIMING_TIME - elapsed
+    
+    if remaining > 0 then
+        return true, remaining, elapsed
+    else
+        return false, 0, 0
+    end
+end
+
+function GetSecondsRemainingReload()
+    if not CurrentState.isReloading then
+        return false, 0, 0
+    end
+    
+    local elapsed = GetTime() - (CurrentState.reloadStartTime or 0)
+    local reloadTime = (CurrentState.rangedSpeed or 0) - _AIMING_TIME
+    local remaining = reloadTime - elapsed
+    
+    if remaining > 0 then
+        return true, remaining, elapsed
+    else
+        return false, 0, 0
+    end
+end
+
+function PredMidShot()
+    return CurrentState.isShooting and not CurrentState.isReloading
+end
+
+-- Function to get time elapsed since last auto shot
+function GetTimeSinceLastAutoShot()
+    local currentTime = GetTime()
+    local lastAutoShot = CurrentState.lastAutoAttack or 0
+    
+    if lastAutoShot == 0 then
+        return 0  -- No auto shot recorded yet
+    end
+    
+    return currentTime - lastAutoShot
+end
+
+-- Function to get time elapsed since last auto shot with debug info
+function GetTimeSinceLastAutoShotDebug()
+    local timeElapsed = GetTimeSinceLastAutoShot()
+    
+    if CurrentState.debugEnabled then
+        print("Time since last auto shot: " .. string.format("%.2f", timeElapsed) .. "s")
+        print("Last auto shot timestamp: " .. string.format("%.2f", CurrentState.lastAutoAttack or 0))
+        print("Current time: " .. string.format("%.2f", GetTime()))
+    end
+    
+    return timeElapsed
+end 

@@ -12,7 +12,7 @@ function GetBestMainShockSpell()
     local natureResist = GetTargetResistance("Nature")
 
     -- Find the lowest resistance
-    local lowestResist = math.min(frostResist, natureResist)
+    local lowestResist = math.min(natureResist, frostResist)
     
     if CurrentState.debugEnabled then
         print("Resistance check - Fire: " .. fireResist .. ", Frost: " .. frostResist .. ", Nature: " .. natureResist)
@@ -21,10 +21,10 @@ function GetBestMainShockSpell()
     
     -- Return the spell with lowest resistance
 
-    if lowestResist == frostResist then
-        return "Frost Shock"
+    if lowestResist == natureResist then
+        return "Earth Shock"
     else
-        return "Earth Shock"  -- Nature resistance
+        return "Frost Shock"
     end
 end
 

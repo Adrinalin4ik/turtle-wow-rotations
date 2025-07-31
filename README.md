@@ -30,3 +30,11 @@ To run class rotation you would have to create the following macroses:
 ```
 TBD
 ```
+
+#### Beast Mastery Hunter
+
+```
+/run --CastSpellByName("Steady Shot")
+/cast !Attack
+/run BMHunterDecision(false)
+```

@@ -14,3 +14,4 @@ fury_warrior_perfect.lua
 arms_warrior.lua
 shaman_enh.lua
 subtlety_rogue.lua
+bm_hunter.lua
