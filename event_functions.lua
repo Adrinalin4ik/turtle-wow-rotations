@@ -39,7 +39,10 @@ function OnLoad()
             debugEnabled = false,
             lastDodge = 0,
             lastParry = 0,
-            skillCastTimes = {}
+            skillCastTimes = {},
+            lastPetCrit = 0,
+            lastPetBite = 0,
+            lastPetClaw = 0
         }
         if CurrentState.debugEnabled then
             print("CurrentState initialized")
@@ -98,7 +101,10 @@ function OnEvent()
             "SPELLCAST_DELAYED",
             "SPELLCAST_FAILED",
             "SPELLCAST_INTERRUPTED",
-            "ITEM_LOCK_CHANGED"
+            "ITEM_LOCK_CHANGED",
+            "CHAT_MSG_COMBAT_PET_HITS",
+            "CHAT_MSG_SPELL_PET_DAMAGE",
+            "CHAT_MSG_COMBAT_PET_MISSES",
         }
         
         for _, eventName in ipairs(events) do
@@ -139,12 +145,15 @@ function OnEvent()
        eventType == "CHAT_MSG_SPELL_SELF_DAMAGE" or
        eventType == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF" or
        eventType == "CHAT_MSG_COMBAT_SELF_HITS" or
+       eventType == "CHAT_MSG_COMBAT_PET_HITS" or
+       eventType == "CHAT_MSG_SPELL_PET_DAMAGE" or
+       eventType == "CHAT_MSG_COMBAT_PET_MISSES" or
        eventType == "CHAT_MSG_COMBAT_SELF_DAMAGE" then
         
         local message = arg1
-        if CurrentState and CurrentState.debugEnabled then
-            print("Combat event: " .. eventType .. " - " .. tostring(message))
-        end
+        -- if CurrentState and CurrentState.debugEnabled then
+        --     print("Combat event: " .. eventType .. " - " .. tostring(message))
+        -- end
         
         -- Check for dodge patterns
         if string.find(message, "dodge") then
@@ -170,6 +179,28 @@ function OnEvent()
             -- end
             if string.find(message, "Auto Shot") then
                 TrackAutoAttack()
+            end
+            
+            local petName = UnitName("pet")
+            -- Track pet crits for BM Hunter Baited Shot
+            if petName and string.find(message, "crits") and string.find(message, petName) then
+                CurrentState.lastPetCrit = GetTime()
+                if CurrentState.debugEnabled then
+                    print("Pet crit detected! Baited Shot now available")
+                end
+            end
+        end
+        
+        -- Track pet ability usage for cooldown management
+        if string.find(message, "Bite") then
+            CurrentState.lastPetBite = GetTime()
+            if CurrentState.debugEnabled then
+                print("Pet Bite used, cooldown started")
+            end
+        elseif string.find(message, "Claw") then
+            CurrentState.lastPetClaw = GetTime()
+            if CurrentState.debugEnabled then
+                print("Pet Claw used")
             end
         end
         

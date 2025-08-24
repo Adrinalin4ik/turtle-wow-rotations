@@ -78,6 +78,15 @@ function FuryWarriorDecision(debugEnabled)
             if Cast("Overpower", "Battle") then
                 return
             end
+
+        elseif not OnCooldown("Thunder Clap") then
+            -- if DEBUG then
+                print("Using Thunder Clap as filler")
+            end
+            if Cast("Thunder Clap", "Battle") then
+                return
+            end
+            return
         -- Check for Rend if no dodge (only on creatures that can bleed)
         elseif not hasRend and rage >= 10 and not IsApplied("Rend", nil) and CanTargetBleed() and isBattleStance then
             if DEBUG then

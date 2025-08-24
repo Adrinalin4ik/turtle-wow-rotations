@@ -49,6 +49,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     -- Get cooldown information for future planning
     local bloodthirstCD = GetCooldown("Bloodthirst")
     local whirlwindCD = GetCooldown("Whirlwind")
+    local thunderClapCD = GetCooldown("Thunder Clap")
     local overpowerUsable = OverPowerIsUsable()
 
     -- Calculate effective rage after potential stance switch (max 25)
@@ -82,7 +83,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         print("Bloodthirst Cost: " .. bloodthirstCost)
         print("Target HP%: " .. math.floor(targetHealthPercent * 100))
         print("Stance - Battle: " .. tostring(isBattleStance) .. ", Berserker: " .. tostring(isBerserkerStance))
-        print("Cooldowns - Bloodthirst: " .. string.format("%.1f", bloodthirstCD) .. "s, Whirlwind: " .. string.format("%.1f", whirlwindCD) .. "s")
+        print("Cooldowns - Bloodthirst: " .. string.format("%.1f", bloodthirstCD) .. "s, Whirlwind: " .. string.format("%.1f", whirlwindCD) .. "s, Thunder Clap: " .. string.format("%.1f", thunderClapCD) .. "s")
         print("Overpower available: " .. tostring(overpowerUsable))
         print("Weapon swing: " .. string.format("%.1f", timeToNextSwing) .. "s, Rage after swing: " .. rageAfterSwing)
         
@@ -128,7 +129,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     -- PRIORITY 5: Combat buffs (only when beneficial)
     if UnitAffectingCombat("player") then
         -- Bloodrage only when rage is low and no better abilities coming soon
-        if not hasEnrage and effectiveRage < 20 and bloodthirstCD > 3 and whirlwindCD > 3 and not overpowerUsable then
+        if not hasEnrage and effectiveRage < 20 and bloodthirstCD > 2 and not overpowerUsable then
             if not OnCooldown("Bloodrage") then
                 if DEBUG then print("Priority 5: Using Bloodrage (low rage, no abilities soon)") end
                 if Cast("Bloodrage") then return end
@@ -172,6 +173,8 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         end
     end
 
+
+
     -- PRIORITY 9: Main damage rotation (Berserker Stance)
     if isBerserkerStance and effectiveRage >= bloodthirstCost then
         -- Bloodthirst (highest priority damage ability)
@@ -180,13 +183,21 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
             if Cast("Bloodthirst", "Berserker") then return end
         end
         
+        -- Slam with 2H weapon and Flurry active (higher priority than Whirlwind)
+        local hasFlurry = GetBuff("player", "Flurry")
+        local is2HWeapon = not OffhandHasWeapon() -- 2H weapon = no offhand weapon
+        if hasFlurry and is2HWeapon and effectiveRage >= 15 then
+            if DEBUG then print("Priority 9: Using Slam (2H weapon + Flurry active)") end
+            if Cast("Slam") then return end
+        end
+        
         -- Whirlwind (use when available if we have enough rage for both abilities)
-        if whirlwindCD <= 0 then
+        if (whirlwindCD <= 0 and not is2HWeapon) or (whirlwindCD <= 0 and nearbyEnemies > 2 and is2HWeapon) then
             -- Use Whirlwind if we have enough rage for both Bloodthirst and Whirlwind
             -- or if Bloodthirst is on cooldown and we have enough rage
             if (effectiveRage >= (bloodthirstCost + 25) and bloodthirstCD <= 0) or 
                (effectiveRage >= 25 and bloodthirstCD > 0) then
-                if DEBUG then print("Priority 9: Using Whirlwind (sufficient rage for both abilities)") end
+                if DEBUG then print("Priority 9: Using Whirlwind (multiple targets: " .. nearbyEnemies .. ", 2H weapon, sufficient rage for both abilities)") end
                 if Cast("Whirlwind", "Berserker") then return end
             end
         end
@@ -222,24 +233,33 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         end
     end
 
-    -- PRIORITY 11: Smart rage dump (considering stance switching penalty and Overpower priority)
+    -- PRIORITY 11: Thunder Clap for area damage and debuff
+    if nearbyEnemies > 1 and effectiveRage >= 20 and not OnCooldown("Thunder Clap") then
+        -- Use Thunder Clap when multiple enemies are present and we have sufficient rage
+        if bloodthirstCD > 2 and whirlwindCD > 2 and not overpowerUsable then
+            if DEBUG then print("Priority 11: Using Thunder Clap (area damage and debuff)") end
+            if Cast("Thunder Clap") then return end
+        end
+    end
+
+    -- PRIORITY 11.5: Smart rage dump (considering stance switching penalty and Overpower priority)
     if rage > 60 then
         -- High rage dump - use Cleave for multiple enemies
         if nearbyEnemies > 1 then
-            if DEBUG then print("Priority 11: Using Cleave (high rage dump)") end
+            if DEBUG then print("Priority 11.5: Using Cleave (high rage dump)") end
             if Cast("Cleave") then return end
         else
-            if DEBUG then print("Priority 11: Using Heroic Strike (high rage dump)") end
+            if DEBUG then print("Priority 11.5: Using Heroic Strike (high rage dump)") end
             if Cast("Heroic Strike") then return end
         end
     elseif rage > 40 then
         -- Medium rage dump - only if no important abilities coming soon
         if bloodthirstCD > 2 and whirlwindCD > 2 and not overpowerUsable then
             if nearbyEnemies > 1 then
-                if DEBUG then print("Priority 11: Using Cleave (medium rage dump)") end
+                if DEBUG then print("Priority 11.5: Using Cleave (medium rage dump)") end
                 if Cast("Cleave") then return end
             else
-                if DEBUG then print("Priority 11: Using Heroic Strike (medium rage dump)") end
+                if DEBUG then print("Priority 11.5: Using Heroic Strike (medium rage dump)") end
                 if Cast("Heroic Strike") then return end
             end
         end
@@ -247,10 +267,10 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         -- Low rage dump - be more aggressive when no better options
         if bloodthirstCD > 3 and whirlwindCD > 3 and not overpowerUsable then
             if nearbyEnemies > 1 then
-                if DEBUG then print("Priority 11: Using Cleave (low rage dump)") end
+                if DEBUG then print("Priority 11.5: Using Cleave (low rage dump)") end
                 if Cast("Cleave") then return end
             else
-                if DEBUG then print("Priority 11: Using Heroic Strike (low rage dump)") end
+                if DEBUG then print("Priority 11.5: Using Heroic Strike (low rage dump)") end
                 if Cast("Heroic Strike") then return end
             end
         end
@@ -284,6 +304,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         print("  Overpower available: " .. tostring(overpowerUsable))
         print("  Bloodthirst: " .. string.format("%.1f", bloodthirstCD) .. "s")
         print("  Whirlwind: " .. string.format("%.1f", whirlwindCD) .. "s")
+        print("  Thunder Clap: " .. string.format("%.1f", thunderClapCD) .. "s")
         print("  Stance switching would save: " .. math.min(rage, 25) .. " rage")
         print("  Next weapon swing in: " .. string.format("%.1f", timeToNextSwing) .. "s")
     end

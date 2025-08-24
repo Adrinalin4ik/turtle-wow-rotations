@@ -14,5 +14,15 @@ CurrentState = {
     reloadStartTime = 0,
     rangedSpeed = 0,
     isCasting = false,
-    isFiredInstant = false
+    isFiredInstant = false,
+    
+    -- BM Hunter pet crit tracking and ability management
+    lastPetCrit = 0,
+    killCommandActive = false,
+    killCommandEndTime = 0,
+    critsRemaining = 0,
+    lastPetBite = 0,
+    lastPetClaw = 0,
+    petBiteCooldown = 6,
+    petClawCooldown = 0  -- Claw has no cooldown
 } 
