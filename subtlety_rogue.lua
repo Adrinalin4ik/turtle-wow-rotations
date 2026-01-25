@@ -69,11 +69,11 @@ function SubtletyRogueDecision(debugEnabled)
     end
 
     -- 3. Slice and Dice with 2 combo points
-    if comboPoints >= 1 and not hasSliceAndDice then
-        if Cast("Slice and Dice") then
-            return
-        end
-    end
+    -- if comboPoints >= 1 and not hasSliceAndDice then
+    --     if Cast("Slice and Dice") then
+    --         return
+    --     end
+    -- end
 
     -- 4. Kidney Shot with 4-5 combo points (only on players)
     if comboPoints >= 3 and isPlayer then
