@@ -175,6 +175,27 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
 
 
 
+    -- Helper function to check if wielding 2H weapon (not dual-wield and not sword+shield)
+    local function Is2HWeapon()
+        -- Check if there's an offhand weapon
+        if OffhandHasWeapon() then
+            return false -- Has offhand weapon, so not 2H
+        end
+        
+        -- Check if offhand slot has a shield (slot 17 is offhand)
+        local offhandItemLink = GetInventoryItemLink("player", 17)
+        if offhandItemLink then
+            -- Parse item link to check if it's a shield
+            local itemName, itemLink, itemQuality, itemLevel, itemMinLevel, itemType, itemSubType = GetItemInfo(offhandItemLink)
+            if itemType and itemSubType and itemType == "Armor" and itemSubType == "Shield" then
+                return false -- Has shield, so not 2H weapon
+            end
+        end
+        
+        -- No offhand weapon and no shield = 2H weapon
+        return true
+    end
+
     -- PRIORITY 9: Main damage rotation (Berserker Stance)
     if isBerserkerStance and effectiveRage >= bloodthirstCost then
         -- Bloodthirst (highest priority damage ability)
@@ -185,7 +206,8 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         
         -- Slam with 2H weapon and Flurry active (higher priority than Whirlwind)
         local hasFlurry = GetBuff("player", "Flurry")
-        local is2HWeapon = not OffhandHasWeapon() -- 2H weapon = no offhand weapon
+        local is2HWeapon = Is2HWeapon()
+        print("is2HWeapon: " .. tostring(is2HWeapon))
         if hasFlurry and is2HWeapon and effectiveRage >= 15 then
             if DEBUG then print("Priority 9: Using Slam (2H weapon + Flurry active)") end
             if Cast("Slam") then return end
