@@ -207,7 +207,6 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         -- Slam with 2H weapon and Flurry active (higher priority than Whirlwind)
         local hasFlurry = GetBuff("player", "Flurry")
         local is2HWeapon = Is2HWeapon()
-        print("is2HWeapon: " .. tostring(is2HWeapon))
         if hasFlurry and is2HWeapon and effectiveRage >= 15 then
             if DEBUG then print("Priority 9: Using Slam (2H weapon + Flurry active)") end
             if Cast("Slam") then return end
