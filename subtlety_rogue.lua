@@ -17,24 +17,12 @@ function SubtletyRogueDecision(debugEnabled)
     local nearbyEnemies = CountNearbyEnemies()
 
     -- Check current buffs
-    local hasBladeFlurry = GetBuff("player", "Blade Flurry")
     local hasEvasion = GetBuff("player", "Evasion")
     local hasSliceAndDice = GetBuff("player", "Slice and Dice")
     local hasQuelDoreiMeditation = GetBuff("player", "Quel'dorei Meditation")
 
     -- Check if target is player
     local isPlayer = UnitIsPlayer("target")
-
-    -- BUFFS SECTION
-    -- 1. Blade Flurry if multiple targets
-    if nearbyEnemies > 2 and not hasBladeFlurry then
-        if DEBUG then
-            print("Multiple targets detected, using Blade Flurry")
-        end
-        if Cast("Blade Flurry") then
-            return
-        end
-    end
 
     -- 2. Evasion if health is low
     if healthPercent < 0.7 and not hasEvasion then
