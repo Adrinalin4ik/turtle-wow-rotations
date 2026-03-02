@@ -1,7 +1,7 @@
-function SubtletyRogueDecision(debugEnabled)
+function SubtletyRogueDecision(debugEnabled, minComboPoints)
     CurrentState.debugEnabled = debugEnabled
     local DEBUG = CurrentState.debugEnabled
-
+    local minComboPoints = minComboPoints or 3
     -- Retrieve current Energy
     local energy = UnitMana("player") or 0
 
@@ -64,14 +64,14 @@ function SubtletyRogueDecision(debugEnabled)
     -- end
 
     -- 4. Kidney Shot with 4-5 combo points (only on players)
-    if comboPoints >= 3 and isPlayer then
+    if comboPoints >= minComboPoints and isPlayer then
         if Cast("Kidney Shot") then
             return
         end
     end
 
     -- 5. Eviscerate with 4-5 combo points
-    if comboPoints >= 3 then
+    if comboPoints >= minComboPoints then
         if Cast("Eviscerate") then
             return
         end
