@@ -35,6 +35,16 @@ function SubtletyRogueDecision(debugEnabled, minComboPoints)
     end
 
     -- 3. Quel'dorei Meditation if energy is very low
+    if energy <= 55 and not OnCooldown("Adrenaline Rush") then
+        if DEBUG then
+            print("Using Adrenaline Rush")
+        end
+        if Cast("Adrenaline Rush") then
+            return
+        end
+    end
+
+    -- 3. Quel'dorei Meditation if energy is very low
     if energy <= 20 and not hasQuelDoreiMeditation then
         if DEBUG then
             print("Energy very low, using Quel'dorei Meditation")
