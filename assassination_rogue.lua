@@ -63,8 +63,8 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
         end
     end
 
-    -- Envenom to boost poison effectiveness (use at 2-3 cp after opener, if not already active)
-    if comboPoints >= 2 and comboPoints <= 3 and not targetHasEnvenom then
+    -- Envenom to boost poison effectiveness (use at 2-3 cp, skip if Cold Blood is ready or Envenom already active)
+    if comboPoints >= 2 and comboPoints <= 3 and not coldBloodReady and not targetHasEnvenom and not IsApplied("Envenom", nil) then
         if DEBUG then
             print("Using Envenom at " .. comboPoints .. " CP to boost poisons")
         end
