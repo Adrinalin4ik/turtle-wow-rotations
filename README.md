@@ -39,6 +39,18 @@ TBD
 /run BMHunterDecision(false)
 ```
 
+#### Marksmanship Hunter
+
+```
+/run --CastSpellByName("Steady Shot")
+/cast !Attack
+/run MMHunterDecision(false)
+```
+
+**Rotation priority:** Concussive Shot (if missing on target) → Arcane Shot → Aimed Shot with Lock and Load → Aimed Shot → Serpent Sting (if missing) → Steady Shot filler (reload timing same as BM).
+
+If the Lock and Load buff name differs on your client, edit the string in `mm_hunter.lua` to match the exact tooltip title from `GetBuff`.
+
 **New Abilities:**
 - **Baited Shot**: Available for 8 seconds after your pet scores a critical hit
 - **Kill Command**: 10 second cooldown, makes your pet's next 2 abilities (Bite/Claw) guaranteed critical hits

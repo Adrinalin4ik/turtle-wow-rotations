@@ -16,3 +16,4 @@ shaman_enh.lua
 subtlety_rogue.lua
 assassination_rogue.lua
 bm_hunter.lua
+mm_hunter.lua
