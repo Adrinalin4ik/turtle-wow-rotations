@@ -129,6 +129,63 @@ function GetBuff(name, buff, stacks)
     return false
 end
 
+-- True if unit has a debuff whose tooltip title matches debuffTooltipTitle and it was applied by the player.
+-- Uses UnitDebuff unitCaster when present (some clients); otherwise scans tooltip lines for player name / "You".
+function GetDebuffFromPlayer(unit, debuffTooltipTitle)
+    local i = 1
+    while UnitDebuff(unit, i) do
+        CommonTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
+        CommonTooltip:ClearLines()
+        CommonTooltip:SetUnitDebuff(unit, i)
+        local text = CommonTooltipTextLeft1:GetText()
+        if text == debuffTooltipTitle then
+            local _, _, _, _, _, _, _, unitCaster = UnitDebuff(unit, i)
+            if unitCaster then
+                if unitCaster == "player" or (type(UnitIsUnit) == "function" and UnitIsUnit(unitCaster, "player")) then
+                    return true
+                end
+            end
+            local playerName = UnitName("player")
+            if playerName then
+                for line = 2, 6 do
+                    local g = getglobal("CommonTooltipTextLeft" .. line)
+                    if g then
+                        local lineText = g:GetText()
+                        if lineText then
+                            if lineText == playerName or string.find(lineText, playerName, 1, true) then
+                                return true
+                            end
+                            if string.find(lineText, "^You%s") or string.find(lineText, "^Your%s") then
+                                return true
+                            end
+                        end
+                    end
+                end
+            end
+            return false
+        end
+        i = i + 1
+    end
+    return false
+end
+
+-- True if the unit is boss-tier or elite (worldboss, elite, rareelite, or skull / level -1).
+function IsTargetRarity(unit)
+    unit = unit or "target"
+    if not UnitExists(unit) then
+        return false
+    end
+    local class = UnitClassification(unit)
+    if class == "worldboss" or class == "elite" or class == "rareelite" then
+        return true
+    end
+    local lvl = UnitLevel(unit)
+    if lvl and lvl == -1 then
+        return true
+    end
+    return false
+end
+
 -- Helper function to check if a spell is on cooldown
 function OnCooldown(Spell)
     if Spell then
