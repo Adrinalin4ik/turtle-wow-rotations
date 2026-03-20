@@ -47,7 +47,7 @@ TBD
 /run MMHunterDecision(false)
 ```
 
-**Rotation priority:** Concussive Shot (if missing on target) → Arcane Shot → Aimed Shot with Lock and Load → Aimed Shot → Serpent Sting (if missing) → Steady Shot filler (reload timing same as BM).
+**Rotation priority:** Concussive Shot (if missing on target) → Arcane Shot → Aimed Shot with Lock and Load → Aimed Shot → Serpent Sting (if missing) → Steady Shot (lowest priority filler).
 
 If the Lock and Load buff name differs on your client, edit the string in `mm_hunter.lua` to match the exact tooltip title from `GetBuff`.
 

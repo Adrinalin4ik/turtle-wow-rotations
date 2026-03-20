@@ -26,7 +26,7 @@ function MMHunterDecision(debugEnabled)
     UpdateAutoShotState()
 
     local isMidShot, timeRemaining = GetSecondsRemainingShoot()
-    local isReloading, reloadTimeRemaining, reloadElapsedTime = GetSecondsRemainingReload()
+    local isReloading, reloadTimeRemaining = GetSecondsRemainingReload()
 
     if DEBUG then
         print("Mana: " .. mana .. "/" .. maxMana .. " (" .. string.format("%.1f", manaPercent * 100) .. "%)")
@@ -98,15 +98,13 @@ function MMHunterDecision(debugEnabled)
         end
     end
 
-    -- Priority 6: Steady Shot filler (same reload window heuristic as BM)
-    if not OnCooldown("Steady Shot") then
-        if reloadElapsedTime < 0.3 then
-            if DEBUG then
-                print("Using Steady Shot as filler (during reload)")
-            end
-            if Cast("Steady Shot") then
-                return
-            end
+    -- Priority 6: Steady Shot (lowest priority filler)
+    if not OnCooldown("Steady Shot") and IsUsable("Steady Shot") then
+        if DEBUG then
+            print("Casting Steady Shot (filler)")
+        end
+        if Cast("Steady Shot") then
+            return
         end
     end
 
