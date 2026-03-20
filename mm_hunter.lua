@@ -1,13 +1,73 @@
 -- Marksmanship Hunter rotation
 -- Uses UpdateAutoShotState / TrackAutoAttack from bm_hunter.lua when present; otherwise defines them below.
 
-function MMHunterDecision(debugEnabled)
+-- manageHuntersMark: when true, applies Hunter's Mark if missing — first priority if target HP > 70%, lowest if <= 70%
+function MMHunterDecision(debugEnabled, manageHuntersMark)
     CurrentState.debugEnabled = debugEnabled
     local DEBUG = CurrentState.debugEnabled
+    manageHuntersMark = manageHuntersMark and true or false
 
     local mana = UnitMana("player") or 0
     local maxMana = UnitManaMax("player") or 1
     local manaPercent = mana / maxMana
+
+    local function tryTrueshotAura()
+        if UnitAffectingCombat("player") then
+            return false
+        end
+        if GetBuff("player", "Trueshot Aura") then
+            return false
+        end
+        if OnCooldown("Trueshot Aura") or not IsUsable("Trueshot Aura") then
+            return false
+        end
+        if DEBUG then
+            print("Applying Trueshot Aura (out of combat)")
+        end
+        return Cast("Trueshot Aura")
+    end
+
+    local function tryAspectOfTheViper()
+        if manaPercent >= 0.4 then
+            return false
+        end
+        if GetBuff("player", "Aspect of the Viper") then
+            return false
+        end
+        if OnCooldown("Aspect of the Viper") or not IsUsable("Aspect of the Viper") then
+            return false
+        end
+        if DEBUG then
+            print("Switching to Aspect of the Viper (mana " .. string.format("%.0f", manaPercent * 100) .. "%)")
+        end
+        return Cast("Aspect of the Viper")
+    end
+
+    local function tryAspectOfTheHawk()
+        if manaPercent <= 0.95 then
+            return false
+        end
+        if GetBuff("player", "Aspect of the Hawk") then
+            return false
+        end
+        if OnCooldown("Aspect of the Hawk") or not IsUsable("Aspect of the Hawk") then
+            return false
+        end
+        if DEBUG then
+            print("Switching to Aspect of the Hawk (mana " .. string.format("%.0f", manaPercent * 100) .. "%)")
+        end
+        return Cast("Aspect of the Hawk")
+    end
+
+    if tryTrueshotAura() then
+        return
+    end
+    if tryAspectOfTheViper() then
+        return
+    end
+    if tryAspectOfTheHawk() then
+        return
+    end
 
     if not UnitExists("target") then
         if DEBUG then
@@ -43,6 +103,46 @@ function MMHunterDecision(debugEnabled)
         if DEBUG then
             print("Mid-shot, waiting... (time remaining: " .. string.format("%.2f", timeRemaining) .. "s)")
         end
+        return
+    end
+
+    local hpMax = UnitHealthMax("target") or 1
+    local hp = UnitHealth("target") or 0
+    local hpPct = hpMax > 0 and (hp / hpMax) or 0
+
+    local function tryHuntersMarkHighPriority()
+        if not manageHuntersMark or hpPct <= 0.7 then
+            return false
+        end
+        if GetBuff("target", "Hunter's Mark") then
+            return false
+        end
+        if OnCooldown("Hunter's Mark") or not IsUsable("Hunter's Mark") then
+            return false
+        end
+        if DEBUG then
+            print("Applying Hunter's Mark (high priority, target " .. string.format("%.0f", hpPct * 100) .. "% HP)")
+        end
+        return Cast("Hunter's Mark")
+    end
+
+    local function tryHuntersMarkLowPriority()
+        if not manageHuntersMark or hpPct > 0.7 then
+            return false
+        end
+        if GetBuff("target", "Hunter's Mark") then
+            return false
+        end
+        if OnCooldown("Hunter's Mark") or not IsUsable("Hunter's Mark") then
+            return false
+        end
+        if DEBUG then
+            print("Applying Hunter's Mark (low priority, target " .. string.format("%.0f", hpPct * 100) .. "% HP)")
+        end
+        return Cast("Hunter's Mark")
+    end
+
+    if tryHuntersMarkHighPriority() then
         return
     end
 
@@ -106,6 +206,10 @@ function MMHunterDecision(debugEnabled)
         if Cast("Steady Shot") then
             return
         end
+    end
+
+    if tryHuntersMarkLowPriority() then
+        return
     end
 
     if DEBUG then
