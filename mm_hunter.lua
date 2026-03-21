@@ -192,12 +192,13 @@ function MMHunterDecision(debugEnabled, manageHuntersMark)
         end
     end
 
-    -- Priority 5: Serpent Sting if our sting is not on target (not another hunter's)
-    if not GetDebuffFromPlayer("target", "Serpent Sting") and not OnCooldown("Serpent Sting") and IsUsable("Serpent Sting") then
+    -- Priority 5: Serpent Sting (15s since our cast on this target, reset on target change; if debuff missing, refresh anytime)
+    if ShouldApplySerpentSting("target") and not OnCooldown("Serpent Sting") and IsUsable("Serpent Sting") then
         if DEBUG then
             print("Applying Serpent Sting")
         end
         if Cast("Serpent Sting") then
+            RecordSerpentStingApplied("target")
             return
         end
     end

@@ -42,7 +42,9 @@ function OnLoad()
             skillCastTimes = {},
             lastPetCrit = 0,
             lastPetBite = 0,
-            lastPetClaw = 0
+            lastPetClaw = 0,
+            serpentStingTrackedId = nil,
+            serpentStingCastTime = nil,
         }
         if CurrentState.debugEnabled then
             print("CurrentState initialized")
