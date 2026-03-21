@@ -33,11 +33,23 @@ TBD
 
 #### Beast Mastery Hunter
 
+Aligned with the Marksmanship flow (aspects, Concussive rules, Arcane before Serpent, Steady filler) plus BM-specific skills.
+
 ```
 /run --CastSpellByName("Steady Shot")
 /cast !Attack
-/run BMHunterDecision(false)
+/run BMHunterDecision(false, false, false, false)
 ```
+
+Arguments: **`debugEnabled`**, **`manageHuntersMark`** (same HP rules as MM), **`useBestialWrath`** (cast when ready and buff not up), **`petAttack`** (call `PetAttack` on the target). Example with Hunter's Mark + Bestial Wrath + pet attack:
+
+```
+/run BMHunterDecision(false, true, true, true)
+```
+
+**Aimed Shot** is only used if **Aimed Shot** is on an action bar slot (addon mapping from `PopulateSpellToActionMapping`), so untalented BM skips it.
+
+**Combat priority:** Kill Command → Bestial Wrath (if flag) → Hunter's Mark (high, if flag) → Concussive Shot → Arcane Shot → Aimed (if on bar, Lock and Load then normal) → Serpent Sting (your sting only) → Steady Shot → Hunter's Mark (low, if flag).
 
 #### Marksmanship Hunter
 
@@ -61,24 +73,4 @@ Second argument enables **Hunter's Mark** when missing: **first** priority if ta
 
 If the Lock and Load buff name differs on your client, edit the string in `mm_hunter.lua` to match the exact tooltip title from `GetBuff`.
 
-**New Abilities:**
-- **Baited Shot**: Available for 8 seconds after your pet scores a critical hit
-- **Kill Command**: 10 second cooldown, makes your pet's next 2 abilities (Bite/Claw) guaranteed critical hits
-- **Pet Ability Management**: Automatically manages pet ability autocast based on energy levels
-
-**Pet Abilities:**
-- **Bite**: High damage ability with 6 second cooldown
-- **Claw**: Lower damage ability with no cooldown, autocast managed by energy levels
-
-**Pet Energy Management:**
-- **>50% Energy**: Claw autocast is ENABLED for consistent damage output
-- **<50% Energy**: Claw autocast is DISABLED to conserve energy for important abilities (like Bite when Kill Command is active)
-
-**Rotation Priority:**
-1. Auto Attack
-2. Tranquilizing Shot (if target enraged)
-3. Hunter's Mark
-4. Kill Command (when available)
-5. Baited Shot (after pet crit)
-6. Pet Ability Management (energy-based autocast control)
-7. Steady Shot (filler)
+**Kill Command** is the top combat skill in the BM script when off cooldown and usable.

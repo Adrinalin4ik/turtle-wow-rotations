@@ -1,13 +1,77 @@
-function BMHunterDecision(debugEnabled)
+-- Beast Mastery Hunter rotation (MM baseline + BM skills)
+-- manageHuntersMark: Hunter's Mark when missing — high prio if target HP > 70%, low if <= 70%
+-- useBestialWrath: cast Bestial Wrath when ready
+-- petAttack: send pet at current target via PetAttack
+
+function BMHunterDecision(debugEnabled, manageHuntersMark, useBestialWrath, petAttack)
     CurrentState.debugEnabled = debugEnabled
     local DEBUG = CurrentState.debugEnabled
+    manageHuntersMark = manageHuntersMark and true or false
+    useBestialWrath = useBestialWrath and true or false
+    petAttack = petAttack and true or false
 
-    -- Get current mana
     local mana = UnitMana("player") or 0
     local maxMana = UnitManaMax("player") or 1
     local manaPercent = mana / maxMana
 
-    -- Check if we have a target
+    local function tryTrueshotAura()
+        if UnitAffectingCombat("player") then
+            return false
+        end
+        if GetBuff("player", "Trueshot Aura") then
+            return false
+        end
+        if OnCooldown("Trueshot Aura") or not IsUsable("Trueshot Aura") then
+            return false
+        end
+        if DEBUG then
+            print("Applying Trueshot Aura (out of combat)")
+        end
+        return Cast("Trueshot Aura")
+    end
+
+    local function tryAspectOfTheViper()
+        if manaPercent >= 0.4 then
+            return false
+        end
+        if GetBuff("player", "Aspect of the Viper") then
+            return false
+        end
+        if OnCooldown("Aspect of the Viper") or not IsUsable("Aspect of the Viper") then
+            return false
+        end
+        if DEBUG then
+            print("Switching to Aspect of the Viper (mana " .. string.format("%.0f", manaPercent * 100) .. "%)")
+        end
+        return Cast("Aspect of the Viper")
+    end
+
+    local function tryAspectOfTheHawk()
+        if manaPercent <= 0.95 then
+            return false
+        end
+        if GetBuff("player", "Aspect of the Hawk") then
+            return false
+        end
+        if OnCooldown("Aspect of the Hawk") or not IsUsable("Aspect of the Hawk") then
+            return false
+        end
+        if DEBUG then
+            print("Switching to Aspect of the Hawk (mana " .. string.format("%.0f", manaPercent * 100) .. "%)")
+        end
+        return Cast("Aspect of the Hawk")
+    end
+
+    if tryTrueshotAura() then
+        return
+    end
+    if tryAspectOfTheViper() then
+        return
+    end
+    if tryAspectOfTheHawk() then
+        return
+    end
+
     if not UnitExists("target") then
         if DEBUG then
             print("No target selected")
@@ -15,7 +79,6 @@ function BMHunterDecision(debugEnabled)
         return
     end
 
-    -- Check if target is attackable
     if not UnitCanAttack("player", "target") then
         if DEBUG then
             print("Target is not attackable")
@@ -23,16 +86,24 @@ function BMHunterDecision(debugEnabled)
         return
     end
 
-    -- Update auto shot state
+    if petAttack and UnitExists("pet") and not UnitIsDead("pet") and type(PetAttack) == "function" then
+        local ok = pcall(function()
+            PetAttack("target")
+        end)
+        if not ok then
+            pcall(PetAttack)
+        end
+        if DEBUG then
+            print("PetAttack invoked")
+        end
+    end
+
     UpdateAutoShotState()
-    
-    -- Update Kill Command state based on pet buffs
     UpdateKillCommandState()
-    
-    -- Use Quiver-style timing logic
-    local isMidShot, timeRemaining, midShotElapsedTime = GetSecondsRemainingShoot()
-    local isReloading, reloadTimeRemaining, reloadElapsedTime = GetSecondsRemainingReload()
-    
+
+    local isMidShot, timeRemaining = GetSecondsRemainingShoot()
+    local isReloading, reloadTimeRemaining = GetSecondsRemainingReload()
+
     if DEBUG then
         print("Mana: " .. mana .. "/" .. maxMana .. " (" .. string.format("%.1f", manaPercent * 100) .. "%)")
         if isMidShot then
@@ -42,32 +113,11 @@ function BMHunterDecision(debugEnabled)
         else
             print("Ready to cast spells")
         end
-        
-        -- Debug pet ability states
-        if CurrentState.killCommandActive then
-            print("Kill Command active! Crits remaining: " .. CurrentState.critsRemaining)
+        if PetHasKillCommandBuff() then
+            print("Pet has Kill Command buff")
         end
-        if IsBaitedShotAvailable() then
-            print("Baited Shot available! (Pet crit within 8s)")
-        end
-        if IsPetBiteAvailable() then
-            print("Pet Bite available")
-        else
-            local cooldownRemaining = GetPetBiteCooldownRemaining()
-            print("Pet Bite cooldown: " .. string.format("%.1f", cooldownRemaining) .. "s remaining")
-        end
-        
-        -- Show pet autocast status
-        if UnitExists("pet") then
-            local clawAutoCast = IsAutoCastEnabled("Claw")
-            print("Pet Claw Autocast: " .. (clawAutoCast and "ENABLED" or "DISABLED"))
-        end
-        
-        -- Show detailed pet ability states
-        ShowPetAbilityStates()
     end
 
-    -- Don't cast if we're in the middle of a shot (aiming phase)
     if isMidShot then
         if DEBUG then
             print("Mid-shot, waiting... (time remaining: " .. string.format("%.2f", timeRemaining) .. "s)")
@@ -75,95 +125,135 @@ function BMHunterDecision(debugEnabled)
         return
     end
 
-    -- Priority 1: Auto attack (handled automatically by the game)
-    if DEBUG then
-        print("Auto attack is active")
-    end
+    local hpMax = UnitHealthMax("target") or 1
+    local hp = UnitHealth("target") or 0
+    local hpPct = hpMax > 0 and (hp / hpMax) or 0
 
-    -- Priority 2: Tranquilizing Shot if target is enraged and not on cooldown
-    local targetEnraged = GetBuff("target", "Enrage") or GetBuff("target", "Berserker Rage") or GetBuff("target", "Frenzy") or GetBuff("target", "Rage")
-    if targetEnraged and not OnCooldown("Tranquilizing Shot") and IsUsable("Tranquilizing Shot") then
+    local aimedOnBar = IsSpellOnActionBar("Aimed Shot")
+
+    local function tryHuntersMarkHighPriority()
+        if not manageHuntersMark or hpPct <= 0.7 then
+            return false
+        end
+        if GetBuff("target", "Hunter's Mark") then
+            return false
+        end
+        if OnCooldown("Hunter's Mark") or not IsUsable("Hunter's Mark") then
+            return false
+        end
         if DEBUG then
-            print("Target is enraged, casting Tranquilizing Shot")
+            print("Applying Hunter's Mark (high priority, target " .. string.format("%.0f", hpPct * 100) .. "% HP)")
         end
-        if Cast("Tranquilizing Shot") then
-            return
-        end
+        return Cast("Hunter's Mark")
     end
 
-    -- Priority 3: Hunter's Mark if not on target
-    local hasHuntersMark = GetBuff("target", "Hunter's Mark")
-    if not hasHuntersMark and not OnCooldown("Hunter's Mark") then
+    local function tryHuntersMarkLowPriority()
+        if not manageHuntersMark or hpPct > 0.7 then
+            return false
+        end
+        if GetBuff("target", "Hunter's Mark") then
+            return false
+        end
+        if OnCooldown("Hunter's Mark") or not IsUsable("Hunter's Mark") then
+            return false
+        end
         if DEBUG then
-            print("No Hunter's Mark on target, applying Hunter's Mark")
+            print("Applying Hunter's Mark (low priority, target " .. string.format("%.0f", hpPct * 100) .. "% HP)")
         end
-        if Cast("Hunter's Mark") then
-            return
-        end
+        return Cast("Hunter's Mark")
     end
 
-    -- Priority 4: Kill Command if available (10 sec cooldown, makes next 2 pet abilities crit)
+    -- Highest priority: Kill Command
     if IsKillCommandAvailable() then
         if DEBUG then
-            print("Kill Command available, casting Kill Command")
+            print("Casting Kill Command")
         end
         if Cast("Kill Command") then
             return
         end
     end
 
-    -- Priority 5: Baited Shot if available (after pet crit, 8 second window)
-    if IsBaitedShotAvailable() and not OnCooldown("Baited Shot") and IsUsable("Baited Shot") then
-        if DEBUG then
-            print("Baited Shot available after pet crit, casting Baited Shot")
+    if useBestialWrath and not OnCooldown("Bestial Wrath") and IsUsable("Bestial Wrath") then
+        if not GetBuff("player", "Bestial Wrath") then
+            if DEBUG then
+                print("Casting Bestial Wrath")
+            end
+            if Cast("Bestial Wrath") then
+                return
+            end
         end
-        if Cast("Baited Shot") then
+    end
+
+    if tryHuntersMarkHighPriority() then
+        return
+    end
+
+    if not IsTargetRarity("target") then
+        local hasConcussive = GetBuff("target", "Concussive Shot")
+        if not hasConcussive and not OnCooldown("Concussive Shot") and IsUsable("Concussive Shot") then
+            if DEBUG then
+                print("Applying Concussive Shot")
+            end
+            if Cast("Concussive Shot") then
+                return
+            end
+        end
+    elseif DEBUG then
+        print("Skipping Concussive Shot (boss or elite target)")
+    end
+
+    if not OnCooldown("Arcane Shot") and IsUsable("Arcane Shot") then
+        if DEBUG then
+            print("Casting Arcane Shot")
+        end
+        if Cast("Arcane Shot") then
             return
         end
     end
 
-    -- Priority 6: Pet ability management
-    -- Control pet ability autocast based on energy levels
-    local petEnergy = UnitMana("pet") or 0
-    local maxPetEnergy = UnitManaMax("pet") or 1
-    local petEnergyPercent = petEnergy / maxPetEnergy
-    
-    if DEBUG then
-        print("Pet Energy: " .. petEnergy .. "/" .. maxPetEnergy .. " (" .. string.format("%.1f", petEnergyPercent * 100) .. "%)")
-    end
-    
-    -- If pet has more than 50% energy, enable Claw autocast for consistent damage
-    -- If pet has less than 50% energy, disable autocast to conserve energy for important abilities
-    if petEnergyPercent > 0.5 then
-        -- Enable Claw autocast for consistent damage output
-        if not IsAutoCastEnabled("Claw") then
+    if aimedOnBar then
+        local hasLockAndLoad = GetBuff("player", "Lock and Load")
+        if hasLockAndLoad and not OnCooldown("Aimed Shot") and IsUsable("Aimed Shot") then
             if DEBUG then
-                print("Pet energy > 50%, enabling Claw autocast")
+                print("Casting Aimed Shot (Lock and Load)")
             end
-            EnableAutoCast("Claw")
-        end
-    else
-        -- Disable Claw autocast to conserve energy
-        if IsAutoCastEnabled("Claw") then
-            if DEBUG then
-                print("Pet energy < 50%, disabling Claw autocast to conserve energy")
-            end
-            DisableAutoCast("Claw")
-        end
-    end
-    
-    -- Priority 7: Steady Shot as filler (has cast time)
-    -- Only cast if we have enough time before next auto attack (Steady Shot has ~1s cast time)
-    if not OnCooldown("Steady Shot") then
-        -- Cast Steady Shot during reloading phase (when we have time)
-        if reloadElapsedTime < 0.3 then
-            if DEBUG then
-                print("Using Steady Shot as filler (during reload)")
-            end
-            if Cast("Steady Shot") then
+            if Cast("Aimed Shot") then
                 return
             end
         end
+
+        if not OnCooldown("Aimed Shot") and IsUsable("Aimed Shot") then
+            if DEBUG then
+                print("Casting Aimed Shot")
+            end
+            if Cast("Aimed Shot") then
+                return
+            end
+        end
+    elseif DEBUG and GetBuff("player", "Lock and Load") then
+        print("Skipping Aimed Shot (not on action bar — talent not taken?)")
+    end
+
+    if not GetDebuffFromPlayer("target", "Serpent Sting") and not OnCooldown("Serpent Sting") and IsUsable("Serpent Sting") then
+        if DEBUG then
+            print("Applying Serpent Sting")
+        end
+        if Cast("Serpent Sting") then
+            return
+        end
+    end
+
+    if not OnCooldown("Steady Shot") and IsUsable("Steady Shot") then
+        if DEBUG then
+            print("Casting Steady Shot (filler)")
+        end
+        if Cast("Steady Shot") then
+            return
+        end
+    end
+
+    if tryHuntersMarkLowPriority() then
+        return
     end
 
     if DEBUG then
@@ -171,142 +261,22 @@ function BMHunterDecision(debugEnabled)
     end
 end
 
--- Function to display current pet ability states (useful for debugging)
-function ShowPetAbilityStates()
-    local DEBUG = CurrentState.debugEnabled
-    if not DEBUG then return end
-    
-    print("=== Pet Ability States ===")
-    print("Kill Command Active: " .. tostring(IsKillCommandActive()))
-    if IsKillCommandActive() then
-        print("Crits Remaining: " .. GetKillCommandCritsRemaining())
-    end
-    
-    print("Baited Shot Available: " .. tostring(IsBaitedShotAvailable()))
-    if IsBaitedShotAvailable() then
-        local timeSinceCrit = GetTime() - (CurrentState.lastPetCrit or 0)
-        print("Baited Shot time remaining: " .. string.format("%.1f", 8 - timeSinceCrit) .. "s")
-    end
-    
-    -- Show pet energy status
-    if UnitExists("pet") then
-        local petEnergy = UnitMana("pet") or 0
-        local maxPetEnergy = UnitManaMax("pet") or 1
-        local petEnergyPercent = petEnergy / maxPetEnergy
-        print("Pet Energy: " .. petEnergy .. "/" .. maxPetEnergy .. " (" .. string.format("%.1f", petEnergyPercent * 100) .. "%)")
-        
-        -- Show autocast status
-        local clawAutoCast = IsAutoCastEnabled("Claw")
-        print("Pet Claw Autocast: " .. (clawAutoCast and "ENABLED" or "DISABLED"))
-        
-        -- Show energy-based autocast recommendation
-        if petEnergyPercent > 0.5 then
-            print("Autocast Status: Claw should be ENABLED (>50% energy)")
-        else
-            print("Autocast Status: Claw should be DISABLED (<50% energy)")
-        end
-    end
-    
-    print("Pet Bite Available: " .. tostring(IsPetBiteAvailable()))
-    if not IsPetBiteAvailable() then
-        local cooldownRemaining = GetPetBiteCooldownRemaining()
-        print("Pet Bite cooldown: " .. string.format("%.1f", cooldownRemaining) .. "s remaining")
-    end
-    
-    print("Pet Claw Available: " .. tostring(IsPetClawAvailable()))
-    print("========================")
-end
-
--- BM Hunter specific helper functions
-
--- Check if Baited Shot is available (after pet crit)
-function IsBaitedShotAvailable()
-    if not CurrentState or not CurrentState.lastPetCrit then
-        return false
-    end
-    
-    local timeSincePetCrit = GetTime() - CurrentState.lastPetCrit
-    -- Baited Shot is available for 8 seconds after pet crit
-    return timeSincePetCrit <= 8
-end
-
--- Check if Kill Command is available
 function IsKillCommandAvailable()
     return not OnCooldown("Kill Command") and IsUsable("Kill Command")
 end
 
--- Check if pet Bite is available
-function IsPetBiteAvailable()
-    if not CurrentState or not CurrentState.lastPetBite then
-        return true
-    end
-    
-    local timeSinceBite = GetTime() - CurrentState.lastPetBite
-    return timeSinceBite >= CurrentState.petBiteCooldown
-end
-
--- Check if pet Claw is available
-function IsPetClawAvailable()
-    -- Claw has no cooldown, always available
-    return true
-end
-
--- Get time remaining until pet Bite is available
-function GetPetBiteCooldownRemaining()
-    if not CurrentState or not CurrentState.lastPetBite then
-        return 0
-    end
-    
-    local timeSinceBite = GetTime() - CurrentState.lastPetBite
-    local cooldownRemaining = CurrentState.petBiteCooldown - timeSinceBite
-    
-    if cooldownRemaining > 0 then
-        return cooldownRemaining
-    else
-        return 0
-    end
-end
-
--- Check if Kill Command buff is active
-function IsKillCommandActive()
-    if not CurrentState then
-        return false
-    end
-    return CurrentState.killCommandActive and CurrentState.critsRemaining > 0
-end
-
--- Get number of crits remaining from Kill Command
-function GetKillCommandCritsRemaining()
-    if not CurrentState or not CurrentState.killCommandActive then
-        return 0
-    end
-    return CurrentState.critsRemaining
-end
-
--- Check if pet has Kill Command buff
 function PetHasKillCommandBuff()
     if not UnitExists("pet") then
         return false
     end
-    
-    local petName = UnitName("pet")
-    if not petName then
-        return false
-    end
-    
-    -- Check if pet has the Kill Command buff
     return GetBuff("pet", "Kill Command")
 end
 
--- Update Kill Command state based on pet buffs
 function UpdateKillCommandState()
     if not CurrentState then
         return
     end
-    
     local hasPetBuff = PetHasKillCommandBuff()
-    
-    -- If pet no longer has the buff but we think it's active, reset the state
     if not hasPetBuff and CurrentState.killCommandActive then
         CurrentState.killCommandActive = false
         CurrentState.critsRemaining = 0
@@ -316,134 +286,43 @@ function UpdateKillCommandState()
     end
 end
 
--- Helper functions for pet autocast control
-
--- Check if a pet ability has autocast enabled
-function IsAutoCastEnabled(abilityName)
-    if not UnitExists("pet") then
-        return false
-    end
-    
-    -- Get the pet's spell book to find the ability
-    local spellID = 1
-    local spellName = GetSpellName(spellID, "BOOKTYPE_PET")
-    
-    while spellName do
-        if spellName == abilityName then
-            -- Check if this ability has autocast enabled
-            local isAutoCast = GetSpellAutocast(spellID, "BOOKTYPE_PET")
-            return isAutoCast
+if not TrackAutoAttack then
+    function TrackAutoAttack()
+        local currentTime = GetTime()
+        CurrentState.lastAutoAttack = currentTime
+        if CurrentState.debugEnabled then
+            print("Auto attack detected at: " .. string.format("%.2f", currentTime))
         end
-        spellID = spellID + 1
-        spellName = GetSpellName(spellID, "BOOKTYPE_PET")
     end
-    
-    return false
 end
 
--- Enable autocast for a pet ability
-function EnableAutoCast(abilityName)
-    if not UnitExists("pet") then
-        return false
-    end
-    
-    local spellID = 1
-    local spellName = GetSpellName(spellID, "BOOKTYPE_PET")
-    
-    while spellName do
-        if spellName == abilityName then
-            -- Enable autocast for this ability
-            SetSpellAutocast(spellID, "BOOKTYPE_PET", true)
-            return true
+if not UpdateAutoShotState then
+    function UpdateAutoShotState()
+        if not CurrentState.isShooting and not CurrentState.isReloading then
+            return
         end
-        spellID = spellID + 1
-        spellName = GetSpellName(spellID, "BOOKTYPE_PET")
-    end
-    
-    return false
-end
-
--- Disable autocast for a pet ability
-function DisableAutoCast(abilityName)
-    if not UnitExists("pet") then
-        return false
-    end
-    
-    local spellID = 1
-    local spellName = GetSpellName(spellID, "BOOKTYPE_PET")
-    
-    while spellName do
-        if spellName == abilityName then
-            -- Disable autocast for this ability
-            SetSpellAutocast(spellID, "BOOKTYPE_PET", false)
-            return true
-        end
-        spellID = spellID + 1
-        spellName = GetSpellName(spellID, "BOOKTYPE_PET")
-    end
-    
-    return false
-end
-
--- Function to reset pet crit tracking (useful for debugging or resetting state)
-function ResetPetCritTracking()
-    CurrentState.lastPetCrit = 0
-    CurrentState.killCommandActive = false
-    CurrentState.critsRemaining = 0
-    CurrentState.lastPetBite = 0
-    CurrentState.lastPetClaw = 0
-    
-    if CurrentState.debugEnabled then
-        print("Pet crit tracking reset")
-    end
-end
-
--- Function to track auto attack timing
-function TrackAutoAttack()
-    local currentTime = GetTime()
-    CurrentState.lastAutoAttack = currentTime
-    
-    if CurrentState.debugEnabled then
-        print("Auto attack detected at: " .. string.format("%.2f", currentTime))
-    end
-end
-
--- Update function to handle state transitions (called periodically)
-function UpdateAutoShotState()
-    if not CurrentState.isShooting and not CurrentState.isReloading then
-        return
-    end
-    
-    local currentTime = GetTime()
-    
-    -- Check if shooting phase is complete
-    if CurrentState.isShooting then
-        local shootElapsed = currentTime - CurrentState.shootStartTime
-        if shootElapsed >= _AIMING_TIME then
-            -- Transition to reload phase
-            CurrentState.isShooting = false
-            CurrentState.isReloading = true
-            CurrentState.reloadStartTime = currentTime
-            
-            if CurrentState.debugEnabled then
-                print("Shooting phase complete, starting reload")
+        local currentTime = GetTime()
+        if CurrentState.isShooting then
+            local shootElapsed = currentTime - CurrentState.shootStartTime
+            if shootElapsed >= _AIMING_TIME then
+                CurrentState.isShooting = false
+                CurrentState.isReloading = true
+                CurrentState.reloadStartTime = currentTime
+                if CurrentState.debugEnabled then
+                    print("Shooting phase complete, starting reload")
+                end
             end
         end
-    end
-    
-    -- Check if reload phase is complete
-    if CurrentState.isReloading then
-        local reloadElapsed = currentTime - CurrentState.reloadStartTime
-        local reloadTime = CurrentState.rangedSpeed - _AIMING_TIME
-        
-        if reloadElapsed >= reloadTime then
-            -- Start next shot
-            CurrentState.isReloading = false
-            CurrentState.isShooting = true
-            CurrentState.shootStartTime = currentTime
-            
-            if CurrentState.debugEnabled then
-                print("Reload complete, starting next shot")
+        if CurrentState.isReloading then
+            local reloadElapsed = currentTime - CurrentState.reloadStartTime
+            local reloadTime = CurrentState.rangedSpeed - _AIMING_TIME
+            if reloadElapsed >= reloadTime then
+                CurrentState.isReloading = false
+                CurrentState.isShooting = true
+                CurrentState.shootStartTime = currentTime
+                if CurrentState.debugEnabled then
+                    print("Reload complete, starting next shot")
+                end
             end
         end
     end

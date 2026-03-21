@@ -186,6 +186,14 @@ function IsTargetRarity(unit)
     return false
 end
 
+-- True if the spell is bound to an action slot (PopulateSpellToActionMapping must have run).
+function IsSpellOnActionBar(spellName)
+    if not spellName or not SpellToActionSlot then
+        return false
+    end
+    return SpellToActionSlot[spellName] ~= nil
+end
+
 -- Helper function to check if a spell is on cooldown
 function OnCooldown(Spell)
     if Spell then
