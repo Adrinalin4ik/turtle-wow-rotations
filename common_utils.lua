@@ -129,51 +129,6 @@ function GetBuff(name, buff, stacks)
     return false
 end
 
-local SERPENT_STING_TRACK_DURATION = 15
-
-local function SerpentStingTrackId(unit)
-    if type(UnitGUID) == "function" then
-        local g = UnitGUID(unit)
-        if g and g ~= "" then
-            return g
-        end
-    end
-    return UnitName(unit) or "?"
-end
-
--- True if we should try to cast Serpent Sting: target changed (resets tracking), no debuff on target, or our 15s window expired.
-function ShouldApplySerpentSting(unit)
-    unit = unit or "target"
-    if not CurrentState or not UnitExists(unit) then
-        return false
-    end
-    local id = SerpentStingTrackId(unit)
-    if CurrentState.serpentStingTrackedId ~= id then
-        CurrentState.serpentStingTrackedId = id
-        CurrentState.serpentStingCastTime = nil
-    end
-    if not GetBuff(unit, "Serpent Sting") then
-        return true
-    end
-    local t = CurrentState.serpentStingCastTime
-    if not t then
-        return true
-    end
-    if (GetTime() - t) < SERPENT_STING_TRACK_DURATION then
-        return false
-    end
-    return true
-end
-
-function RecordSerpentStingApplied(unit)
-    unit = unit or "target"
-    if not CurrentState or not UnitExists(unit) then
-        return
-    end
-    CurrentState.serpentStingTrackedId = SerpentStingTrackId(unit)
-    CurrentState.serpentStingCastTime = GetTime()
-end
-
 -- True if the unit is boss-tier or elite (worldboss, elite, rareelite, or skull / level -1).
 function IsTargetRarity(unit)
     unit = unit or "target"

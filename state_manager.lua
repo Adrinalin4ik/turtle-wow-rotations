@@ -24,9 +24,5 @@ CurrentState = {
     lastPetBite = 0,
     lastPetClaw = 0,
     petBiteCooldown = 6,
-    petClawCooldown = 0,  -- Claw has no cooldown
-
-    -- Hunter Serpent Sting: time-based refresh (see ShouldApplySerpentSting)
-    serpentStingTrackedId = nil,
-    serpentStingCastTime = nil,
+    petClawCooldown = 0  -- Claw has no cooldown
 } 

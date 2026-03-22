@@ -234,16 +234,6 @@ function BMHunterDecision(debugEnabled, manageHuntersMark, useBestialWrath, petA
         print("Skipping Aimed Shot (not on action bar — talent not taken?)")
     end
 
-    if ShouldApplySerpentSting("target") and not OnCooldown("Serpent Sting") and IsUsable("Serpent Sting") then
-        if DEBUG then
-            print("Applying Serpent Sting")
-        end
-        if Cast("Serpent Sting") then
-            RecordSerpentStingApplied("target")
-            return
-        end
-    end
-
     if not OnCooldown("Steady Shot") and IsUsable("Steady Shot") then
         if DEBUG then
             print("Casting Steady Shot (filler)")

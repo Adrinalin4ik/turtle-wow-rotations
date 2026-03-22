@@ -192,18 +192,7 @@ function MMHunterDecision(debugEnabled, manageHuntersMark)
         end
     end
 
-    -- Priority 5: Serpent Sting (15s since our cast on this target, reset on target change; if debuff missing, refresh anytime)
-    if ShouldApplySerpentSting("target") and not OnCooldown("Serpent Sting") and IsUsable("Serpent Sting") then
-        if DEBUG then
-            print("Applying Serpent Sting")
-        end
-        if Cast("Serpent Sting") then
-            RecordSerpentStingApplied("target")
-            return
-        end
-    end
-
-    -- Priority 6: Steady Shot (lowest priority filler)
+    -- Priority 5: Steady Shot (lowest priority filler)
     if not OnCooldown("Steady Shot") and IsUsable("Steady Shot") then
         if DEBUG then
             print("Casting Steady Shot (filler)")
