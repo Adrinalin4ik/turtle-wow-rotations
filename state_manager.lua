@@ -24,10 +24,5 @@ CurrentState = {
     lastPetBite = 0,
     lastPetClaw = 0,
     petBiteCooldown = 6,
-    petClawCooldown = 0,  -- Claw has no cooldown
-
-    -- Assassination rogue PvP opener: 1=evis setup, 2=gouge+meditate, 3=kidney/envenom, nil=regular
-    assassinOpenerStep = nil,
-    assassinOpenerMeditationUsed = false,
-    assassinOpenerFinished = false -- true after opener completes; reset when leaving combat
+    petClawCooldown = 0  -- Claw has no cooldown
 } 
