@@ -21,20 +21,16 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
     local isPlayer = UnitIsPlayer("target")
     local isEnemyPlayer = UnitExists("target") and UnitIsPlayer("target") and UnitCanAttack("player", "target")
 
-    local targetGUID = (UnitExists("target") and UnitCanAttack("player", "target")) and UnitGUID("target") or nil
-
     if not UnitAffectingCombat("player") then
-        CurrentState.assassinOpenerTargetGUID = nil
         CurrentState.assassinOpenerStep = nil
         CurrentState.assassinOpenerMeditationUsed = false
-    elseif isEnemyPlayer and targetGUID then
-        if CurrentState.assassinOpenerTargetGUID ~= targetGUID then
-            CurrentState.assassinOpenerTargetGUID = targetGUID
+        CurrentState.assassinOpenerFinished = false
+    elseif isEnemyPlayer then
+        if not CurrentState.assassinOpenerFinished and not CurrentState.assassinOpenerStep then
             CurrentState.assassinOpenerStep = 1
             CurrentState.assassinOpenerMeditationUsed = false
         end
     else
-        CurrentState.assassinOpenerTargetGUID = nil
         CurrentState.assassinOpenerStep = nil
         CurrentState.assassinOpenerMeditationUsed = false
     end
@@ -119,6 +115,7 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
                 end
                 CurrentState.assassinOpenerStep = nil
                 CurrentState.assassinOpenerMeditationUsed = false
+                CurrentState.assassinOpenerFinished = true
                 openerEnded = true
             else
                 if DEBUG then
@@ -127,6 +124,7 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
                 if Cast("Kidney Shot") then
                     CurrentState.assassinOpenerStep = nil
                     CurrentState.assassinOpenerMeditationUsed = false
+                    CurrentState.assassinOpenerFinished = true
                     return
                 end
                 return
