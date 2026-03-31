@@ -83,8 +83,14 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
         end
     end
 
-    -- Noxious Assault as combo point builder (applies poisons from both hands)
-    if Cast("Noxious Assault") then
-        return
+    -- Combo point builder: prefer Noxious Assault, fall back to Hemorrhage
+    if IsUsable("Noxious Assault") then
+        if Cast("Noxious Assault") then
+            return
+        end
+    elseif IsUsable("Hemorrhage") then
+        if Cast("Hemorrhage") then
+            return
+        end
     end
 end
