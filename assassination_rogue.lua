@@ -84,11 +84,11 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
     end
 
     -- Combo point builder: prefer Noxious Assault, fall back to Hemorrhage
-    if IsUsable("Noxious Assault") then
+    if IsSpellOnActionBar("Noxious Assault") then
         if Cast("Noxious Assault") then
             return
         end
-    elseif IsUsable("Hemorrhage") then
+    elseif IsSpellOnActionBar("Hemorrhage") then
         if Cast("Hemorrhage") then
             return
         end
