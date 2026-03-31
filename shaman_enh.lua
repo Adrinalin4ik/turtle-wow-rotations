@@ -53,11 +53,9 @@ function ShamanDecision(debugEnabled, shockType, useFlameShock)
         return
     end
 
-    -- Use resistance-based shock selection when Stormstrike is active
-    -- if hasStormStrike then
-    local bestShock = GetBestMainShockSpell()
+    -- Use explicitly passed shockType if provided, otherwise fall back to resistance-based selection
+    local bestShock = shockType or GetBestMainShockSpell()
     if Cast(bestShock, nil) then
         return
     end
-    -- end
 end
