@@ -213,7 +213,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
         end
         
         -- Whirlwind (use when available if we have enough rage for both abilities)
-        if (whirlwindCD <= 0 and not is2HWeapon) or (whirlwindCD <= 0 and nearbyEnemies > 2 and is2HWeapon) then
+        if (whirlwindCD <= 0 and not is2HWeapon) or (whirlwindCD <= 0 and nearbyEnemies > 2 and is2HWeapon) and not isPlayer then
             -- Use Whirlwind if we have enough rage for both Bloodthirst and Whirlwind
             -- or if Bloodthirst is on cooldown and we have enough rage
             if (effectiveRage >= (bloodthirstCost + 25) and bloodthirstCD <= 0) or 
@@ -266,7 +266,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     -- PRIORITY 11.5: Smart rage dump (considering stance switching penalty and Overpower priority)
     if rage > 60 then
         -- High rage dump - use Cleave for multiple enemies
-        if nearbyEnemies > 1 then
+        if nearbyEnemies > 1 and not isPlayer then
             if DEBUG then print("Priority 11.5: Using Cleave (high rage dump)") end
             if Cast("Cleave") then return end
         else
@@ -276,7 +276,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     elseif rage > 40 then
         -- Medium rage dump - only if no important abilities coming soon
         if bloodthirstCD > 2 and whirlwindCD > 2 and not overpowerUsable then
-            if nearbyEnemies > 1 then
+            if nearbyEnemies > 1 and not isPlayer then
                 if DEBUG then print("Priority 11.5: Using Cleave (medium rage dump)") end
                 if Cast("Cleave") then return end
             else
@@ -287,7 +287,7 @@ function FuryWarriorPerfect(debugEnabled, bloodthirstCost)
     elseif rage > 30 then
         -- Low rage dump - be more aggressive when no better options
         if bloodthirstCD > 3 and whirlwindCD > 3 and not overpowerUsable then
-            if nearbyEnemies > 1 then
+            if nearbyEnemies > 1 and not isPlayer then
                 if DEBUG then print("Priority 11.5: Using Cleave (low rage dump)") end
                 if Cast("Cleave") then return end
             else
