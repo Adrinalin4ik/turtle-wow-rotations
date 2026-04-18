@@ -64,7 +64,7 @@ function AssassinationRogueDecision(debugEnabled, minComboPoints)
     end
 
     -- Envenom to boost poison effectiveness (use at 2-3 cp, skip if Cold Blood is ready or Envenom already active)
-    if comboPoints == 1 and not hasColdBlood and not hasEnvenom then
+    if comboPoints == 1 and not hasColdBlood and not hasEnvenom and IsSpellOnActionBar("Envenom") then
         if DEBUG then
             print("Using Envenom at " .. comboPoints .. " CP to boost poisons")
         end
